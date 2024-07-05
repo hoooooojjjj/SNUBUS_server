@@ -1,2 +1,14 @@
-name: snubus
-path: proxy
+name: snubus-proxy
+instance_type: micro
+regions:
+  - fra
+scaling:
+  min: 1
+  max: 1
+ports:
+  - 8080
+build:
+  command: npm install && npm run build
+env:
+  - key: NODE_ENV
+    value: production
