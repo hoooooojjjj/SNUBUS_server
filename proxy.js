@@ -17,9 +17,6 @@ app.use((req, res, next) => {
   const origin = req.headers.origin; // 요청의 Origin 헤더를 가져오기
   const url = req.query.url; // 요청의 쿼리 매개변수에서 'url'을 가져오기
 
-  console.log(`Request from: ${origin}`); // 요청의 Origin 헤더를 콘솔에 출력
-  console.log(`Requested URL: ${url}`); // 요청된 URL을 콘솔에 출력
-
   // 요청된 URL이 허용된 URL 목록에 있는지 확인
   if (allowedUrls.includes(url.split("?")[0])) {
     // URL의 기본 경로와 일치하는지 확인
@@ -43,8 +40,6 @@ app.get("/proxy", (req, res) => {
     // URL이 제공되지 않았으면
     return res.status(400).send("URL is required"); // 400 상태 코드와 함께 오류 메시지를 반환
   }
-
-  console.log(`Fetching URL: ${url}`); // 요청된 URL을 콘솔에 출력
 
   // request 모듈을 사용하여 원격 서버에 요청을 보내기
   request(
