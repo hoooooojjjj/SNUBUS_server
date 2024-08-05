@@ -2,6 +2,7 @@
 const express = require("express");
 const request = require("request");
 require("dotenv").config();
+const cors = require("cors");
 
 const app = express();
 const PORT = 8080;
@@ -43,8 +44,8 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/busData", (req, res) => {
-  const { routeId } = req.query;
-  const url = `http://ws.bus.go.kr/api/rest/buspos/getBusPosByRtid?ServiceKey=${API_KEY}&busRouteId=${routeId}&resultType=json`;
+  const { routeId, busClassification } = req.query;
+  const url = `http://ws.bus.go.kr/api/rest/buspos/getBusPosByRtid?ServiceKey=${process.env.API_KEY}&busRouteId=${routeId}&resultType=json`;
 
   request(url, (error, response, body) => {
     if (error) {
@@ -55,7 +56,42 @@ app.get("/api/busData", (req, res) => {
     const headerMsg = parsedBody.msgHeader.headerMsg;
 
     if (headerMsg === "정상적으로 처리되었습니다.") {
-      res.status(200).send(parsedBody.msgBody.itemList);
+      const parsedBusClassification = JSON.parse(busClassification);
+      const busData = parsedBody.msgBody.itemList;
+      // 각 버스의 위치 좌표 리턴
+      const getPosBuses = busData.map((bus) => [bus.gpsY, bus.gpsX]);
+
+      // 각 버스의 정보 (버스 ID, 차량번호, 차량유형, 제공시간)
+      const getBusInfo = busData.map((bus) => ({
+        vehId: bus.vehId,
+        plainNo: bus.plainNo,
+        busType: bus.busType,
+        dataTm: bus.dataTm,
+      }));
+
+      // 중앙대학교 방면 snubus 정류장 지나는 버스만 추출
+      const busStationDirectionToStart = busData.filter(
+        (busPos) =>
+          parseInt(busPos.sectOrd) >=
+            parsedBusClassification.NumberOfStations.start[0] &&
+          parseInt(busPos.sectOrd) <=
+            parsedBusClassification.NumberOfStations.start[1]
+      );
+
+      // 신림2동차고지 방면 snubus 정류장 지나는 버스만 출력
+      const busStationDirectionToEnd = busData.filter(
+        (busPos) =>
+          parseInt(busPos.sectOrd) >=
+            parsedBusClassification.NumberOfStations.end[0] &&
+          parseInt(busPos.sectOrd) <=
+            parsedBusClassification.NumberOfStations.end[1]
+      );
+      res.status(200).send({
+        getPosBuses,
+        getBusInfo,
+        busStationDirectionToStart,
+        busStationDirectionToEnd,
+      });
     } else if (
       headerMsg.includes("LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS")
     ) {
@@ -67,8 +103,9 @@ app.get("/api/busData", (req, res) => {
 });
 
 app.get("/api/stationData", (req, res) => {
-  const { routeId } = req.query;
-  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?ServiceKey=${API_KEY}&busRouteId=${routeId}&resultType=json`;
+  const { routeId, busClassification } = req.query;
+
+  const url = `http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRouteAll?ServiceKey=${process.env.API_KEY}&busRouteId=${routeId}&resultType=json`;
 
   request(url, (error, response, body) => {
     if (error) {
@@ -79,7 +116,24 @@ app.get("/api/stationData", (req, res) => {
     const headerMsg = parsedBody.msgHeader.headerMsg;
 
     if (headerMsg === "정상적으로 처리되었습니다.") {
-      res.status(200).send(parsedBody.msgBody.itemList);
+      const busStationData = parsedBody.msgBody.itemList;
+
+      const parsedBusClassification = JSON.parse(busClassification);
+      // 중앙대학교 방면 정류장들 관련 정보 필터링
+      const busStationName_start = busStationData.filter(
+        (busStationInfo, i) =>
+          i >= parsedBusClassification.NumberOfStations.start[0] &&
+          i <= parsedBusClassification.NumberOfStations.start[1]
+      );
+
+      // 신림2동차고지 방면 정류장들 관련 정보 필터링
+      const busStationName_end = busStationData.filter(
+        (busStationInfo, i) =>
+          i >= parsedBusClassification.NumberOfStations.end[0] &&
+          i <= parsedBusClassification.NumberOfStations.end[1]
+      );
+
+      res.status(200).send({ busStationName_start, busStationName_end });
     } else if (
       headerMsg.includes("LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS")
     ) {
