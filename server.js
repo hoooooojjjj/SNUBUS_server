@@ -115,6 +115,8 @@ app.get("/api/stationData", (req, res) => {
     const parsedBody = JSON.parse(body);
     const headerMsg = parsedBody.msgHeader.headerMsg;
 
+    console.log(headerMsg);
+
     if (headerMsg === "정상적으로 처리되었습니다.") {
       const busStationData = parsedBody.msgBody.itemList;
 
